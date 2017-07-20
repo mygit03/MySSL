@@ -6,6 +6,7 @@
 #include <openssl/aes.h>
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QMessageBox>
 
 #define AES_BITS 128
 #define MSG_LEN 128
@@ -28,9 +29,8 @@ MySSl::MySSl(QWidget *parent) :
 
         QSqlQuery sql_query;
         QString create_sql = "create table if not exists info (src varchar(30) primary key, dst varchar(30), key varchar(30))"; //创建数据表
-        QString insert_sql = "insert into info values(?,?,?)";    //插入数据
-
-        QString select_all_sql = "select * from info";
+//        QString insert_sql = "insert into info values(?,?,?)";    //插入数据
+//        QString select_all_sql = "select * from info";
 
         sql_query.prepare(create_sql); //创建表
         if(!sql_query.exec()) //查看创建表是否成功
@@ -186,10 +186,17 @@ void MySSl::on_btn_encry_clicked()
     QString text = ui->textEdit->toPlainText();
     strcpy((char*)sourceStringTemp, text.toLatin1().data());
 
-    for(int i = 0; i < 16; ++i)//可自由设置密钥
-    {
-        key[i] = 32 + i;
+//    for(int i = 0; i < 16; ++i)//可自由设置密钥
+//    {
+//        key[i] = 32 + i;
+//    }
+
+    QString iKey = ui->lineEdit->text();
+    if(iKey.isEmpty()){
+        QMessageBox::warning(this,tr("警告："),tr("密钥为空！"));
+        return;
     }
+    strcpy((char*)key, iKey.toLatin1().data());
 
     //加密
     if(!aes_encrypt(sourceStringTemp,key,dstStringTemp))
@@ -200,23 +207,22 @@ void MySSl::on_btn_encry_clicked()
     printf("enc %d:",strlen((char*)dstStringTemp));
     for(int i = 0; dstStringTemp[i]; ++i){
         printf("%x",(unsigned char)dstStringTemp[i]);
-        tmp.sprintf("%2x",(unsigned char)dstStringTemp[i]);
+        tmp.sprintf("%x",(unsigned char)dstStringTemp[i]);
         str.append(tmp);
     }
     qDebug() << "dfaf:" << str;
     ui->textEdit_2->setText(tr("<font size=5 color=red>%1</font>").arg(str));
 
-//    QString src = ui->textEdit->toPlainText();
-//    QString dst = dstStringTemp;
-//    QString hex = str;
+    QString src = ui->textEdit->toPlainText();
+    QString dst = dstStringTemp;
 
-//    openDB();
-//    QSqlQuery qry(m_db);
-//    QString strSql = QString("insert into info values ('%1','%2','%3')").arg(src).arg(dst).arg(hex);
-//    if(!qry.exec(strSql)){
-//        qDebug() << qry.lastError();
-//    }
-//    closeDB();
+    openDB();
+    QSqlQuery qry(m_db);
+    QString strSql = QString("insert into info values ('%1','%2','%3')").arg(src).arg(dst).arg(iKey);
+    if(!qry.exec(strSql)){
+        qDebug() << "insert:" << qry.lastError();
+    }
+    closeDB();
 #endif
 }
 
@@ -227,50 +233,27 @@ void MySSl::on_textEdit_textChanged()
 
 void MySSl::on_btn_decry_clicked()
 {
-//    QString tmp,str;
-//    char sourceStringTemp[MSG_LEN];
-//    char dstStringTemp[MSG_LEN];
-//    memset((char*)sourceStringTemp, 0 ,MSG_LEN);
-//    memset((char*)dstStringTemp, 0 ,MSG_LEN);
-//    QString text = ui->textEdit->toPlainText();
-//    strcpy((char*)sourceStringTemp, /*"123456789 123456789 123456789 12a"*/text.toLatin1().data());
-//    //strcpy((char*)sourceStringTemp, argv[1]);
-
-//    char key[AES_BLOCK_SIZE];
-//    int i;
-//    for(i = 0; i < 16; i++)//可自由设置密钥
-//    {
-//        key[i] = 32 + i;
-//    }
-
-//    //加密
-//    if(!aes_encrypt(sourceStringTemp,key,dstStringTemp))
-//    {
-//        printf("encrypt error\n");
-//        return;
-//    }
-//    printf("enc %d:",strlen((char*)dstStringTemp));
-//    for(i= 0;dstStringTemp[i];i+=1){
-//        printf("%x",(unsigned char)dstStringTemp[i]);
-//        tmp.sprintf("%2x",(unsigned char)dstStringTemp[i]);
-//        str.append(tmp);
-//    }
-//    qDebug() << "dfaf:" << str;
-//    ui->textEdit_2->setText(str);
-
-//    QString src = ui->textEdit->toPlainText();
-//    QString dst = dstStringTemp;
-//    QString hex = str;
-
-//    openDB();
-//    QSqlQuery qry(m_db);
-//    QString strSql = QString("insert into info values ('%1','%2','%3')").arg(src).arg(dst).arg(hex);
-//    if(!qry.exec(strSql)){
-//        qDebug() << qry.lastError();
-//    }
-//    closeDB();
+    QString iKey = ui->lineEdit->text();
+    if(iKey.isEmpty()){
+        QMessageBox::warning(this,tr("警告："),tr("密钥为空！"));
+        return;
+    }
+    QString strSql = QString("select * from info where key='%1'").arg(iKey);
+    openDB();
+    QSqlQuery qry(m_db);
+    if(!qry.exec(strSql)){
+        qDebug() << qry.lastError();
+        return;
+    }
+    QString src,dst;
+    if (qry.next()) {
+        src = qry.value(0).toString();
+        dst = qry.value(1).toString();
+    }
+    qDebug() << "fsdadsf:" << src << dst << iKey;
 
     //解密
+    strcpy((char*)key,iKey.toLatin1().data());
     memset((char*)sourceStringTemp, 0 ,MSG_LEN);
     if(!aes_decrypt(dstStringTemp,key,sourceStringTemp))
     {
